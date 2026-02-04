@@ -4,7 +4,7 @@ A PyTorch-first library for calibrating ranking scores and evaluating
 calibration at top-k positions where decisions actually happen.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Calibrators
 from .calibrators import (
