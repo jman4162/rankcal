@@ -3,18 +3,16 @@
 Shows how to use risk-coverage and utility curves for threshold selection.
 """
 
-import torch
 import matplotlib.pyplot as plt
 
 from rankcal import (
     IsotonicCalibrator,
     generate_miscalibrated_data,
     optimal_threshold,
-    plot_risk_coverage,
-    plot_utility_curve,
     risk_coverage_curve,
     threshold_for_coverage,
     utility_budget_curve,
+    utility_curve,
 )
 
 
@@ -64,21 +62,20 @@ def main():
     ax.set_xlabel("Coverage")
     ax.set_ylabel("Risk (Error Rate)")
     ax.set_title("Risk-Coverage Curve")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
     ax.grid(True, alpha=0.3)
 
-    # Utility curves for different costs
+    # Utility curves for different costs using the utility_curve function
     ax = axes[0, 1]
-    thresholds = torch.linspace(0, 1, 100)
-    for benefit, cost, color in [(1, 1, "blue"), (1, 2, "orange"), (1, 5, "red")]:
-        utilities = []
-        for t in thresholds:
-            pred = (calibrated >= t).float()
-            tp = (pred * labels_test).sum()
-            fp = (pred * (1 - labels_test)).sum()
-            utilities.append(benefit * tp - cost * fp)
+    colors = {"1:1": "blue", "1:2": "orange", "1:5": "red"}
+    for (benefit, cost), color in zip([(1, 1), (1, 2), (1, 5)], colors.values()):
+        thresholds, utilities = utility_curve(
+            calibrated, labels_test, benefit=benefit, cost=cost
+        )
         ax.plot(
             thresholds.numpy(),
-            torch.tensor(utilities).numpy(),
+            utilities.numpy(),
             color=color,
             label=f"b={benefit}, c={cost}",
             linewidth=2,

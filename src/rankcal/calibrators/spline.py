@@ -1,4 +1,7 @@
-"""Spline calibrator with monotonicity constraints."""
+"""Piecewise linear calibrator with monotonicity constraints."""
+
+import warnings
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -7,18 +10,25 @@ import torch.nn.functional as F
 from .base import BaseCalibrator
 
 
-class SplineCalibrator(BaseCalibrator):
-    """Monotonic spline calibrator.
+class PiecewiseLinearCalibrator(BaseCalibrator):
+    """Monotonic piecewise linear calibrator.
 
-    Uses a cubic spline with constrained coefficients to ensure monotonicity.
-    Differentiable and smooth, good balance between flexibility and stability.
+    Uses linear interpolation between learnable knot values with monotonicity
+    constraints enforced via softplus on increments. This provides a flexible,
+    differentiable calibration function that balances expressiveness with stability.
+
+    The calibrator learns values at fixed knot positions and interpolates linearly
+    between them. Monotonicity is guaranteed by construction.
     """
 
+    knots: torch.Tensor  # Type annotation for registered buffer
+
     def __init__(self, n_knots: int = 10) -> None:
-        """Initialize spline calibrator.
+        """Initialize piecewise linear calibrator.
 
         Args:
-            n_knots: Number of interior knots for the spline.
+            n_knots: Number of interior knots. Total knots will be n_knots + 2
+                (including endpoints at 0 and 1).
         """
         super().__init__()
         self.n_knots = n_knots
@@ -54,8 +64,9 @@ class SplineCalibrator(BaseCalibrator):
         lr: float = 0.1,
         max_iter: int = 500,
         tol: float = 1e-6,
-    ) -> "SplineCalibrator":
-        """Fit spline parameters using NLL loss.
+        **kwargs: Any,
+    ) -> "PiecewiseLinearCalibrator":
+        """Fit calibrator parameters using NLL loss.
 
         Args:
             scores: Predicted scores in (0, 1), shape (n_samples,)
@@ -63,11 +74,14 @@ class SplineCalibrator(BaseCalibrator):
             lr: Learning rate for optimization
             max_iter: Maximum optimization iterations
             tol: Convergence tolerance
+            **kwargs: Unused, for API compatibility
 
         Returns:
             self
         """
-        scores, labels = self._validate_inputs(scores, labels)
+        scores, validated_labels = self._validate_inputs(scores, labels)
+        assert validated_labels is not None
+        labels = validated_labels
 
         optimizer = torch.optim.Adam([self.knot_values_raw], lr=lr)
 
@@ -119,7 +133,7 @@ class SplineCalibrator(BaseCalibrator):
         return y0 + t * (y1 - y0)
 
     def forward(self, scores: torch.Tensor) -> torch.Tensor:
-        """Apply spline calibration.
+        """Apply piecewise linear calibration.
 
         Args:
             scores: Uncalibrated scores in (0, 1)
@@ -133,3 +147,21 @@ class SplineCalibrator(BaseCalibrator):
 
     def extra_repr(self) -> str:
         return f"n_knots={self.n_knots}"
+
+
+class SplineCalibrator(PiecewiseLinearCalibrator):
+    """Deprecated alias for PiecewiseLinearCalibrator.
+
+    .. deprecated:: 0.2.0
+        Use :class:`PiecewiseLinearCalibrator` instead. This class will be
+        removed in a future version.
+    """
+
+    def __init__(self, n_knots: int = 10) -> None:
+        warnings.warn(
+            "SplineCalibrator is deprecated and will be removed in a future version. "
+            "Use PiecewiseLinearCalibrator instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(n_knots=n_knots)

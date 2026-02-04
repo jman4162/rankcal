@@ -9,11 +9,47 @@ import matplotlib.pyplot as plt
 
 from rankcal import (
     IsotonicCalibrator,
-    ece,
     ece_at_k,
     generate_miscalibrated_data,
-    reliability_diagram,
 )
+from rankcal.metrics.ece import calibration_error_per_bin
+
+
+def plot_reliability(ax, scores, labels, k=None, title=""):
+    """Plot a reliability diagram on the given axes.
+
+    Args:
+        ax: Matplotlib axes to plot on
+        scores: Calibrated scores
+        labels: Binary relevance labels
+        k: If provided, only use top-k scores
+        title: Plot title
+    """
+    if k is not None:
+        k = min(k, len(scores))
+        _, top_k_indices = torch.topk(scores, k)
+        scores = scores[top_k_indices]
+        labels = labels[top_k_indices]
+
+    centers, accs, confs, counts = calibration_error_per_bin(scores, labels)
+    mask = counts > 0
+
+    ax.plot([0, 1], [0, 1], "k--", alpha=0.7, label="Perfect calibration")
+    ax.bar(
+        confs[mask].numpy(),
+        accs[mask].numpy(),
+        width=0.08,
+        alpha=0.7,
+        color="steelblue",
+        edgecolor="black",
+    )
+    ax.set_xlabel("Mean Predicted Probability")
+    ax.set_ylabel("Fraction of Positives")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_title(title)
+    ax.legend(loc="upper left")
+    ax.grid(True, alpha=0.3)
 
 
 def main():
@@ -48,59 +84,6 @@ def main():
     # Create reliability diagrams
     print("\nGenerating reliability diagrams...")
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-
-    # Top-left: Uncalibrated, all data
-    plt.sca(axes[0, 0])
-    fig1 = reliability_diagram(scores_test, labels_test, title="Uncalibrated (All)")
-    plt.close(fig1)
-    axes[0, 0] = fig1.axes[0]
-
-    # Top-right: Uncalibrated, top-100
-    plt.sca(axes[0, 1])
-    fig2 = reliability_diagram(scores_test, labels_test, k=100, title="Uncalibrated (Top-100)")
-    plt.close(fig2)
-
-    # Bottom-left: Calibrated, all data
-    plt.sca(axes[1, 0])
-    fig3 = reliability_diagram(calibrated_scores, labels_test, title="Calibrated (All)")
-    plt.close(fig3)
-
-    # Bottom-right: Calibrated, top-100
-    plt.sca(axes[1, 1])
-    fig4 = reliability_diagram(calibrated_scores, labels_test, k=100, title="Calibrated (Top-100)")
-    plt.close(fig4)
-
-    # Create a combined figure
-    fig, axes = plt.subplots(2, 2, figsize=(14, 12))
-
-    # Manually create reliability diagrams
-    from rankcal.metrics.ece import calibration_error_per_bin
-
-    def plot_reliability(ax, scores, labels, k=None, title=""):
-        if k is not None:
-            k = min(k, len(scores))
-            _, top_k_indices = torch.topk(scores, k)
-            scores = scores[top_k_indices]
-            labels = labels[top_k_indices]
-
-        centers, accs, confs, counts = calibration_error_per_bin(scores, labels)
-        mask = counts > 0
-
-        ax.plot([0, 1], [0, 1], "k--", alpha=0.7, label="Perfect")
-        ax.bar(
-            confs[mask].numpy(),
-            accs[mask].numpy(),
-            width=0.08,
-            alpha=0.7,
-            color="steelblue",
-            edgecolor="black",
-        )
-        ax.set_xlabel("Mean Predicted Probability")
-        ax.set_ylabel("Fraction of Positives")
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.set_title(title)
-        ax.legend()
 
     plot_reliability(axes[0, 0], scores_test, labels_test, title="Uncalibrated (All)")
     plot_reliability(axes[0, 1], scores_test, labels_test, k=100, title="Uncalibrated (Top-100)")

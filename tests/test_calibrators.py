@@ -1,11 +1,14 @@
 """Tests for calibrators."""
 
+import warnings
+
 import pytest
 import torch
 
 from rankcal import (
     IsotonicCalibrator,
     MonotonicNNCalibrator,
+    PiecewiseLinearCalibrator,
     SplineCalibrator,
     TemperatureScaling,
 )
@@ -115,31 +118,31 @@ class TestIsotonicCalibrator:
         assert (calibrated <= 1).all()
 
 
-class TestSplineCalibrator:
+class TestPiecewiseLinearCalibrator:
     def test_init(self):
-        cal = SplineCalibrator()
+        cal = PiecewiseLinearCalibrator()
         assert cal.n_knots == 10
         assert not cal.fitted
 
     def test_init_custom_knots(self):
-        cal = SplineCalibrator(n_knots=5)
+        cal = PiecewiseLinearCalibrator(n_knots=5)
         assert cal.n_knots == 5
 
     def test_fit_returns_self(self):
-        cal = SplineCalibrator()
+        cal = PiecewiseLinearCalibrator()
         scores, labels = generate_calibrated_data(100, seed=42)
         result = cal.fit(scores, labels, max_iter=50)
         assert result is cal
         assert cal.fitted
 
     def test_forward_requires_fit(self):
-        cal = SplineCalibrator()
+        cal = PiecewiseLinearCalibrator()
         scores = torch.rand(10)
         with pytest.raises(RuntimeError, match="must be fitted"):
             cal(scores)
 
     def test_forward_preserves_shape(self):
-        cal = SplineCalibrator()
+        cal = PiecewiseLinearCalibrator()
         scores, labels = generate_calibrated_data(100, seed=42)
         cal.fit(scores, labels, max_iter=50)
 
@@ -148,8 +151,8 @@ class TestSplineCalibrator:
         assert calibrated.shape == test_scores.shape
 
     def test_output_is_monotonic(self):
-        """Spline calibrator should produce monotonically increasing outputs."""
-        cal = SplineCalibrator()
+        """Piecewise linear calibrator should produce monotonically increasing outputs."""
+        cal = PiecewiseLinearCalibrator()
         scores, labels = generate_calibrated_data(200, seed=42)
         cal.fit(scores, labels, max_iter=100)
 
@@ -160,13 +163,35 @@ class TestSplineCalibrator:
         assert (diffs >= -1e-5).all()
 
     def test_output_in_valid_range(self):
-        cal = SplineCalibrator()
+        cal = PiecewiseLinearCalibrator()
         scores, labels = generate_calibrated_data(100, seed=42)
         cal.fit(scores, labels, max_iter=50)
 
         calibrated = cal(scores)
         assert (calibrated >= 0).all()
         assert (calibrated <= 1).all()
+
+
+class TestSplineCalibratorDeprecation:
+    """Tests for the deprecated SplineCalibrator alias."""
+
+    def test_deprecation_warning(self):
+        """SplineCalibrator should emit a deprecation warning."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            cal = SplineCalibrator()
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "PiecewiseLinearCalibrator" in str(w[0].message)
+
+    def test_still_works(self):
+        """SplineCalibrator should still work despite deprecation."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            cal = SplineCalibrator()
+            scores, labels = generate_calibrated_data(100, seed=42)
+            cal.fit(scores, labels, max_iter=50)
+            assert cal.fitted
 
 
 class TestMonotonicNNCalibrator:
@@ -228,7 +253,7 @@ class TestInputValidation:
 
     @pytest.mark.parametrize(
         "calibrator_cls",
-        [TemperatureScaling, IsotonicCalibrator, SplineCalibrator],
+        [TemperatureScaling, IsotonicCalibrator, PiecewiseLinearCalibrator],
     )
     def test_shape_mismatch_raises(self, calibrator_cls):
         cal = calibrator_cls()
@@ -239,7 +264,7 @@ class TestInputValidation:
 
     @pytest.mark.parametrize(
         "calibrator_cls",
-        [TemperatureScaling, IsotonicCalibrator, SplineCalibrator],
+        [TemperatureScaling, IsotonicCalibrator, PiecewiseLinearCalibrator],
     )
     def test_accepts_numpy_arrays(self, calibrator_cls):
         import numpy as np
@@ -248,7 +273,7 @@ class TestInputValidation:
         scores = np.random.rand(100)
         labels = np.random.randint(0, 2, 100).astype(float)
 
-        if calibrator_cls == SplineCalibrator:
+        if calibrator_cls == PiecewiseLinearCalibrator:
             cal.fit(scores, labels, max_iter=10)
         else:
             cal.fit(scores, labels)

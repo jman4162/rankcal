@@ -107,7 +107,8 @@ def expected_utility_at_budget(
     true_positives = selected_labels.sum()
     false_positives = (1 - selected_labels).sum()
 
-    return benefit * true_positives - cost * false_positives
+    utility: torch.Tensor = benefit * true_positives - cost * false_positives
+    return utility
 
 
 def utility_budget_curve(

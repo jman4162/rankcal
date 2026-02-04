@@ -1,5 +1,7 @@
 """Temperature scaling calibrator."""
 
+from typing import Any
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -35,6 +37,7 @@ class TemperatureScaling(BaseCalibrator):
         lr: float = 0.01,
         max_iter: int = 100,
         tol: float = 1e-6,
+        **kwargs: Any,
     ) -> "TemperatureScaling":
         """Fit temperature parameter using NLL loss.
 
@@ -44,11 +47,14 @@ class TemperatureScaling(BaseCalibrator):
             lr: Learning rate for optimization
             max_iter: Maximum optimization iterations
             tol: Convergence tolerance
+            **kwargs: Unused, for API compatibility
 
         Returns:
             self
         """
-        scores, labels = self._validate_inputs(scores, labels)
+        scores, validated_labels = self._validate_inputs(scores, labels)
+        assert validated_labels is not None
+        labels = validated_labels
 
         # Clamp scores to avoid inf logits
         scores = scores.clamp(1e-7, 1 - 1e-7)

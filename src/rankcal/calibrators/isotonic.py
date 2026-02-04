@@ -1,5 +1,7 @@
 """Isotonic regression calibrator."""
 
+from typing import Any
+
 import torch
 
 from .base import BaseCalibrator
@@ -24,17 +26,21 @@ class IsotonicCalibrator(BaseCalibrator):
         self,
         scores: torch.Tensor,
         labels: torch.Tensor,
+        **kwargs: Any,
     ) -> "IsotonicCalibrator":
         """Fit isotonic regression using PAVA algorithm.
 
         Args:
             scores: Predicted scores, shape (n_samples,)
             labels: Binary relevance labels, shape (n_samples,)
+            **kwargs: Unused, for API compatibility
 
         Returns:
             self
         """
-        scores, labels = self._validate_inputs(scores, labels)
+        scores, validated_labels = self._validate_inputs(scores, labels)
+        assert validated_labels is not None
+        labels = validated_labels
 
         # Sort by scores
         sorted_indices = torch.argsort(scores)

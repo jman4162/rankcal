@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -25,13 +25,14 @@ class BaseCalibrator(nn.Module, ABC):
         self,
         scores: torch.Tensor,
         labels: torch.Tensor,
-        **kwargs,
-    ) -> BaseCalibrator:
+        **kwargs: Any,
+    ) -> "BaseCalibrator":
         """Fit the calibrator to validation data.
 
         Args:
             scores: Predicted scores, shape (n_samples,)
             labels: Binary relevance labels, shape (n_samples,)
+            **kwargs: Additional calibrator-specific parameters
 
         Returns:
             self

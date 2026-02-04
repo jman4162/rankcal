@@ -54,8 +54,35 @@ fig.savefig("reliability.png")
 |------------|----------------|------------|-------------|
 | `TemperatureScaling` | ✓ | ✓ | Single learned temperature parameter |
 | `IsotonicCalibrator` | ✗ | ✗ | Non-parametric, piecewise constant |
-| `SplineCalibrator` | ✓ | ✓ | Smooth monotonic spline |
+| `PiecewiseLinearCalibrator` | ✓ | ✓ | Monotonic piecewise linear interpolation |
 | `MonotonicNNCalibrator` | ✓ | ✓ | Neural network with monotonicity constraints |
+
+## GPU Support
+
+All calibrators are PyTorch `nn.Module` subclasses and support GPU acceleration:
+
+```python
+import torch
+from rankcal import TemperatureScaling
+
+# Move calibrator to GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+calibrator = TemperatureScaling().to(device)
+
+# Fit with data on GPU
+scores = scores.to(device)
+labels = labels.to(device)
+calibrator.fit(scores, labels)
+
+# Inference on GPU
+test_scores = test_scores.to(device)
+calibrated = calibrator(test_scores)
+```
+
+Run GPU tests with:
+```bash
+pytest tests/test_gpu.py --device cuda  # or --device mps on Mac
+```
 
 ## Metrics
 

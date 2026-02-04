@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -49,7 +49,7 @@ class MonotonicNNCalibrator(BaseCalibrator):
         self.hidden_dims = hidden_dims
 
         # Build network
-        layers = []
+        layers: List[nn.Module] = []
         in_dim = 1
         for hidden_dim in hidden_dims:
             layers.append(MonotonicLinear(in_dim, hidden_dim))
@@ -67,6 +67,7 @@ class MonotonicNNCalibrator(BaseCalibrator):
         max_iter: int = 1000,
         tol: float = 1e-6,
         batch_size: Optional[int] = None,
+        **kwargs: Any,
     ) -> MonotonicNNCalibrator:
         """Fit neural network using NLL loss.
 
@@ -77,11 +78,14 @@ class MonotonicNNCalibrator(BaseCalibrator):
             max_iter: Maximum optimization iterations
             tol: Convergence tolerance
             batch_size: Batch size for training. None for full batch.
+            **kwargs: Unused, for API compatibility
 
         Returns:
             self
         """
-        scores, labels = self._validate_inputs(scores, labels)
+        scores, validated_labels = self._validate_inputs(scores, labels)
+        assert validated_labels is not None
+        labels = validated_labels
 
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 

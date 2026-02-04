@@ -11,6 +11,7 @@ from .calibrators import (
     BaseCalibrator,
     IsotonicCalibrator,
     MonotonicNNCalibrator,
+    PiecewiseLinearCalibrator,
     SplineCalibrator,
     TemperatureScaling,
 )
@@ -51,7 +52,8 @@ __all__ = [
     "BaseCalibrator",
     "TemperatureScaling",
     "IsotonicCalibrator",
-    "SplineCalibrator",
+    "PiecewiseLinearCalibrator",
+    "SplineCalibrator",  # Deprecated alias
     "MonotonicNNCalibrator",
     # Metrics
     "ece",
