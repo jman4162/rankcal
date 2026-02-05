@@ -1,0 +1,47 @@
+site_name: rankcal
+site_description: Calibration for ranking systems
+site_url: https://jman4162.github.io/rankcal/
+repo_url: https://github.com/jman4162/rankcal
+repo_name: jman4162/rankcal
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+  features:
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+  - User Guide:
+    - Choosing a Calibrator: guide/choosing-calibrator.md
+    - Hyperparameters: guide/hyperparameters.md
+    - Evaluation: guide/evaluation.md
+    - Decision Making: guide/decisions.md
+  - API Reference:
+    - Calibrators: api/calibrators.md
+    - Metrics: api/metrics.md
+    - Decision Tools: api/decision.md
+    - Utilities: api/utils.md
+  - Examples:
+    - Tutorial: examples/tutorial.md
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - admonition
+  - toc:
+      permalink: true

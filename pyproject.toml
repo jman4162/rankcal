@@ -43,6 +43,10 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
+docs = [
+    "mkdocs-material>=9.0.0",
+    "mkdocstrings[python]>=0.24.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/johnhodge/rankcal"
