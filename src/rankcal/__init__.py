@@ -4,7 +4,7 @@ A PyTorch-first library for calibrating ranking scores and evaluating
 calibration at top-k positions where decisions actually happen.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 # Calibrators
 from .calibrators import (
@@ -31,11 +31,15 @@ from .decision import (
 
 # Metrics
 from .metrics import (
+    adaptive_ece,
+    adaptive_ece_at_k,
     calibration_error_per_bin,
     calibration_gap_at_k,
     ece,
     ece_at_k,
     expected_precision_at_k,
+    mce,
+    mce_at_k,
     mean_actual_relevance,
     mean_predicted_relevance,
     precision_at_k,
@@ -58,6 +62,10 @@ __all__ = [
     # Metrics
     "ece",
     "ece_at_k",
+    "adaptive_ece",
+    "adaptive_ece_at_k",
+    "mce",
+    "mce_at_k",
     "calibration_error_per_bin",
     "reliability_diagram",
     "precision_at_k",

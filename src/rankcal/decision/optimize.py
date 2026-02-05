@@ -33,21 +33,22 @@ def optimal_threshold(
     if not isinstance(labels, torch.Tensor):
         labels = torch.as_tensor(labels, dtype=torch.float32)
 
+    scores = scores.flatten()
+    labels = labels.flatten()
+
     thresholds = torch.linspace(0, 1, n_thresholds)
-    best_threshold = torch.tensor(0.5)
-    best_utility = torch.tensor(float("-inf"))
 
-    for thresh in thresholds:
-        predictions = (scores >= thresh).float()
-        true_positives = (predictions * labels).sum()
-        false_positives = (predictions * (1 - labels)).sum()
-        utility = benefit * true_positives - cost * false_positives
+    # Vectorized: (n_thresholds, n_samples) predictions
+    predictions = (scores.unsqueeze(0) >= thresholds.unsqueeze(1)).float()
 
-        if utility > best_utility:
-            best_utility = utility
-            best_threshold = thresh
+    # True positives and false positives for each threshold
+    true_positives = (predictions * labels.unsqueeze(0)).sum(dim=1)
+    false_positives = (predictions * (1 - labels).unsqueeze(0)).sum(dim=1)
 
-    return best_threshold, best_utility
+    utilities = benefit * true_positives - cost * false_positives
+
+    best_idx = utilities.argmax()
+    return thresholds[best_idx], utilities[best_idx]
 
 
 def budget_constrained_selection(
@@ -135,19 +136,28 @@ def utility_budget_curve(
     if not isinstance(labels, torch.Tensor):
         labels = torch.as_tensor(labels, dtype=torch.float32)
 
+    scores = scores.flatten()
+    labels = labels.flatten()
+
     n_samples = len(scores)
     if max_budget is None:
         max_budget = n_samples
 
     max_budget = min(max_budget, n_samples)
 
-    budgets = torch.arange(1, max_budget + 1)
-    utilities = torch.zeros(max_budget)
+    # Sort by scores descending and get corresponding labels
+    sorted_indices = torch.argsort(scores, descending=True)
+    sorted_labels = labels[sorted_indices]
 
-    for i, budget in enumerate(budgets):
-        utilities[i] = expected_utility_at_budget(
-            scores, labels, budget.item(), benefit, cost
-        )
+    # Cumulative sum of labels gives TP at each budget
+    cumsum_labels = torch.cumsum(sorted_labels, dim=0)
+
+    # At budget k: TP = cumsum_labels[k-1], FP = k - TP
+    budgets = torch.arange(1, max_budget + 1)
+    true_positives = cumsum_labels[:max_budget]
+    false_positives = budgets.float() - true_positives
+
+    utilities = benefit * true_positives - cost * false_positives
 
     return budgets, utilities
 

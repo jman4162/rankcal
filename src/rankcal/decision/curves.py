@@ -32,23 +32,29 @@ def risk_coverage_curve(
     if not isinstance(labels, torch.Tensor):
         labels = torch.as_tensor(labels, dtype=torch.float32)
 
-    thresholds = torch.linspace(0, 1, n_thresholds)
-    coverage = torch.zeros(n_thresholds)
-    risk = torch.zeros(n_thresholds)
-
+    scores = scores.flatten()
+    labels = labels.flatten()
     n_samples = len(scores)
 
-    for i, thresh in enumerate(thresholds):
-        mask = scores >= thresh
-        n_above = mask.sum()
+    thresholds = torch.linspace(0, 1, n_thresholds)
 
-        coverage[i] = n_above / n_samples
+    # Vectorized: (n_thresholds, n_samples) mask
+    mask = scores.unsqueeze(0) >= thresholds.unsqueeze(1)
 
-        if n_above > 0:
-            # Risk = 1 - accuracy = error rate
-            risk[i] = 1 - labels[mask].mean()
-        else:
-            risk[i] = 0  # No samples, no risk
+    # Count samples above each threshold
+    n_above = mask.sum(dim=1).float()
+    coverage = n_above / n_samples
+
+    # Sum of labels above each threshold
+    label_sums = (mask.float() * labels.unsqueeze(0)).sum(dim=1)
+
+    # Risk = 1 - accuracy = 1 - (sum of labels / n_above)
+    # Handle division by zero: where n_above == 0, set risk to 0
+    risk = torch.where(
+        n_above > 0,
+        1 - label_sums / n_above,
+        torch.zeros_like(n_above),
+    )
 
     return coverage, risk
 
@@ -79,14 +85,19 @@ def utility_curve(
     if not isinstance(labels, torch.Tensor):
         labels = torch.as_tensor(labels, dtype=torch.float32)
 
-    thresholds = torch.linspace(0, 1, n_thresholds)
-    utility = torch.zeros(n_thresholds)
+    scores = scores.flatten()
+    labels = labels.flatten()
 
-    for i, thresh in enumerate(thresholds):
-        predictions = (scores >= thresh).float()
-        true_positives = (predictions * labels).sum()
-        false_positives = (predictions * (1 - labels)).sum()
-        utility[i] = benefit * true_positives - cost * false_positives
+    thresholds = torch.linspace(0, 1, n_thresholds)
+
+    # Vectorized: (n_thresholds, n_samples) predictions
+    predictions = (scores.unsqueeze(0) >= thresholds.unsqueeze(1)).float()
+
+    # True positives and false positives for each threshold
+    true_positives = (predictions * labels.unsqueeze(0)).sum(dim=1)
+    false_positives = (predictions * (1 - labels).unsqueeze(0)).sum(dim=1)
+
+    utility = benefit * true_positives - cost * false_positives
 
     return thresholds, utility
 

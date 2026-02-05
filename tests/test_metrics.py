@@ -6,11 +6,15 @@ import torch
 matplotlib.use("Agg")  # Use non-interactive backend
 
 from rankcal import (
+    adaptive_ece,
+    adaptive_ece_at_k,
     calibration_error_per_bin,
     calibration_gap_at_k,
     ece,
     ece_at_k,
     expected_precision_at_k,
+    mce,
+    mce_at_k,
     mean_actual_relevance,
     mean_predicted_relevance,
     precision_at_k,
@@ -108,6 +112,143 @@ class TestReliabilityDiagram:
         fig = reliability_diagram(scores, labels, k=20)
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
+
+
+class TestAdaptiveECE:
+    def test_adaptive_ece_range(self):
+        """Adaptive ECE should be in [0, 1]."""
+        scores = torch.rand(100)
+        labels = torch.randint(0, 2, (100,)).float()
+        ece_val = adaptive_ece(scores, labels)
+        assert 0 <= ece_val <= 1
+
+    def test_adaptive_ece_with_calibrated_data(self):
+        """Adaptive ECE should be small for well-calibrated data."""
+        torch.manual_seed(42)
+        scores, labels = generate_calibrated_data(10000, seed=42)
+        ece_val = adaptive_ece(scores, labels)
+        assert ece_val < 0.1
+
+    def test_adaptive_ece_handles_skewed_distribution(self):
+        """Adaptive ECE should handle non-uniform score distributions."""
+        # Skewed distribution: most scores near 0.9
+        scores = torch.clamp(torch.randn(100) * 0.1 + 0.9, 0, 1)
+        labels = torch.randint(0, 2, (100,)).float()
+        ece_val = adaptive_ece(scores, labels)
+        assert 0 <= ece_val <= 1
+
+    def test_adaptive_ece_identical_scores(self):
+        """Adaptive ECE should handle all identical scores."""
+        scores = torch.full((100,), 0.7)
+        labels = torch.randint(0, 2, (100,)).float()
+        ece_val = adaptive_ece(scores, labels)
+        assert 0 <= ece_val <= 1
+
+    def test_adaptive_ece_with_different_n_bins(self):
+        """Adaptive ECE should work with different bin counts."""
+        scores, labels = generate_calibrated_data(100, seed=42)
+        ece_5 = adaptive_ece(scores, labels, n_bins=5)
+        ece_20 = adaptive_ece(scores, labels, n_bins=20)
+        assert 0 <= ece_5 <= 1
+        assert 0 <= ece_20 <= 1
+
+
+class TestAdaptiveECEAtK:
+    def test_adaptive_ece_at_k_range(self):
+        """Adaptive ECE@k should be in [0, 1]."""
+        scores = torch.rand(100)
+        labels = torch.randint(0, 2, (100,)).float()
+        ece_val = adaptive_ece_at_k(scores, labels, k=20)
+        assert 0 <= ece_val <= 1
+
+    def test_adaptive_ece_at_k_equals_adaptive_ece_when_k_equals_n(self):
+        """Adaptive ECE@k should equal adaptive ECE when k equals n."""
+        scores, labels = generate_calibrated_data(100, seed=42)
+        ece_full = adaptive_ece(scores, labels)
+        ece_k = adaptive_ece_at_k(scores, labels, k=100)
+        assert torch.isclose(ece_full, ece_k, atol=1e-6)
+
+    def test_adaptive_ece_at_k_handles_k_larger_than_n(self):
+        """Should handle k > n gracefully."""
+        scores = torch.rand(10)
+        labels = torch.randint(0, 2, (10,)).float()
+        ece_val = adaptive_ece_at_k(scores, labels, k=100)
+        assert 0 <= ece_val <= 1
+
+
+class TestMCE:
+    def test_mce_range(self):
+        """MCE should be in [0, 1]."""
+        scores = torch.rand(100)
+        labels = torch.randint(0, 2, (100,)).float()
+        mce_val = mce(scores, labels)
+        assert 0 <= mce_val <= 1
+
+    def test_mce_greater_than_or_equal_to_ece(self):
+        """MCE should be >= ECE (max >= weighted mean)."""
+        torch.manual_seed(42)
+        for _ in range(10):
+            scores = torch.rand(100)
+            labels = torch.randint(0, 2, (100,)).float()
+            ece_val = ece(scores, labels)
+            mce_val = mce(scores, labels)
+            assert mce_val >= ece_val - 1e-6  # Small tolerance for floating point
+
+    def test_mce_overconfident(self):
+        """MCE should detect worst-case miscalibration."""
+        # All predictions are 0.9 but only 50% are relevant
+        scores = torch.full((100,), 0.9)
+        labels = torch.cat([torch.ones(50), torch.zeros(50)])
+        mce_val = mce(scores, labels)
+        assert mce_val > 0.3  # Should be around 0.4
+
+    def test_mce_with_different_n_bins(self):
+        """MCE should work with different bin counts."""
+        scores, labels = generate_calibrated_data(100, seed=42)
+        mce_5 = mce(scores, labels, n_bins=5)
+        mce_20 = mce(scores, labels, n_bins=20)
+        assert 0 <= mce_5 <= 1
+        assert 0 <= mce_20 <= 1
+
+    def test_mce_perfect_calibration(self):
+        """MCE should be small for well-calibrated data."""
+        torch.manual_seed(42)
+        scores, labels = generate_calibrated_data(10000, seed=42)
+        mce_val = mce(scores, labels)
+        # MCE can be higher than ECE even for calibrated data
+        assert mce_val < 0.15
+
+
+class TestMCEAtK:
+    def test_mce_at_k_range(self):
+        """MCE@k should be in [0, 1]."""
+        scores = torch.rand(100)
+        labels = torch.randint(0, 2, (100,)).float()
+        mce_val = mce_at_k(scores, labels, k=20)
+        assert 0 <= mce_val <= 1
+
+    def test_mce_at_k_equals_mce_when_k_equals_n(self):
+        """MCE@k should equal MCE when k equals n."""
+        scores, labels = generate_calibrated_data(100, seed=42)
+        mce_full = mce(scores, labels)
+        mce_k = mce_at_k(scores, labels, k=100)
+        assert torch.isclose(mce_full, mce_k, atol=1e-6)
+
+    def test_mce_at_k_handles_k_larger_than_n(self):
+        """Should handle k > n gracefully."""
+        scores = torch.rand(10)
+        labels = torch.randint(0, 2, (10,)).float()
+        mce_val = mce_at_k(scores, labels, k=100)
+        assert 0 <= mce_val <= 1
+
+    def test_mce_at_k_greater_than_or_equal_to_ece_at_k(self):
+        """MCE@k should be >= ECE@k."""
+        torch.manual_seed(42)
+        scores = torch.rand(100)
+        labels = torch.randint(0, 2, (100,)).float()
+        ece_val = ece_at_k(scores, labels, k=30)
+        mce_val = mce_at_k(scores, labels, k=30)
+        assert mce_val >= ece_val - 1e-6
 
 
 class TestRankingMetrics:
