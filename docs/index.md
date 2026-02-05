@@ -54,10 +54,10 @@ calibrated = calibrator(test_scores)
 If you use rankcal in academic work, please cite:
 
 ```bibtex
-@software{hodge2025rankcal,
+@software{hodge2026rankcal,
   author = {Hodge, John},
   title = {rankcal: Calibration for Ranking Systems},
-  year = {2025},
+  year = {2026},
   url = {https://github.com/jman4162/rankcal},
   version = {0.2.0}
 }
