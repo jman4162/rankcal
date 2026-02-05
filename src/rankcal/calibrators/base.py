@@ -8,6 +8,8 @@ from typing import Any, Optional, Tuple
 import torch
 import torch.nn as nn
 
+import rankcal
+
 
 class BaseCalibrator(nn.Module, ABC):
     """Abstract base class for all calibrators.
@@ -94,3 +96,84 @@ class BaseCalibrator(nn.Module, ABC):
                 )
 
         return scores, labels
+
+    def save(self, path: str) -> None:
+        """Save calibrator to disk.
+
+        Args:
+            path: File path to save to (e.g., 'calibrator.pt')
+
+        Raises:
+            RuntimeError: If calibrator has not been fitted
+
+        Example:
+            >>> calibrator = TemperatureScaling()
+            >>> calibrator.fit(scores, labels)
+            >>> calibrator.save('my_calibrator.pt')
+        """
+        self._check_fitted()
+
+        metadata = {
+            "class_name": self.__class__.__name__,
+            "module": self.__class__.__module__,
+            "rankcal_version": rankcal.__version__,
+            "state_dict": self.state_dict(),
+            "fitted": self._fitted,
+        }
+        torch.save(metadata, path)
+
+    @classmethod
+    def load(cls, path: str) -> "BaseCalibrator":
+        """Load calibrator from disk.
+
+        Args:
+            path: File path to load from
+
+        Returns:
+            Loaded calibrator instance
+
+        Example:
+            >>> calibrator = TemperatureScaling.load('my_calibrator.pt')
+            >>> calibrated = calibrator(new_scores)
+        """
+        metadata = torch.load(path, weights_only=False)
+
+        # Verify class matches
+        if cls.__name__ != "BaseCalibrator" and cls.__name__ != metadata["class_name"]:
+            raise ValueError(
+                f"Saved calibrator is {metadata['class_name']}, "
+                f"but loading with {cls.__name__}"
+            )
+
+        # Get the actual class
+        if cls.__name__ == "BaseCalibrator":
+            # Called via BaseCalibrator.load() - need to find the right class
+            calibrator_cls = getattr(rankcal, metadata["class_name"])
+        else:
+            calibrator_cls = cls
+
+        # Create instance and load state
+        instance = calibrator_cls()
+
+        # Manually load buffers and parameters to handle dynamic sizes
+        # (e.g., IsotonicCalibrator has variable-length buffers)
+        state_dict = metadata["state_dict"]
+        for name, param in state_dict.items():
+            parts = name.split(".")
+            module = instance
+            for part in parts[:-1]:
+                module = getattr(module, part)
+            attr_name = parts[-1]
+
+            # Check if it's a registered buffer or parameter
+            if attr_name in dict(module.named_buffers(recurse=False)):
+                module.register_buffer(attr_name, param)
+            elif attr_name in dict(module.named_parameters(recurse=False)):
+                with torch.no_grad():
+                    getattr(module, attr_name).copy_(param)
+            else:
+                setattr(module, attr_name, param)
+
+        instance._fitted = metadata["fitted"]
+
+        return instance

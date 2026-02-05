@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from rankcal import (
+    BaseCalibrator,
     IsotonicCalibrator,
     MonotonicNNCalibrator,
     PiecewiseLinearCalibrator,
@@ -279,3 +280,95 @@ class TestInputValidation:
             cal.fit(scores, labels)
 
         assert cal.fitted
+
+
+class TestSerialization:
+    """Tests for save/load functionality."""
+
+    @pytest.fixture
+    def sample_data(self):
+        return generate_miscalibrated_data(500, seed=42)
+
+    def test_save_load_temperature_scaling(self, sample_data, tmp_path):
+        scores, labels = sample_data
+        calibrator = TemperatureScaling()
+        calibrator.fit(scores, labels)
+
+        # Save
+        path = tmp_path / "calibrator.pt"
+        calibrator.save(str(path))
+
+        # Load
+        loaded = TemperatureScaling.load(str(path))
+
+        # Verify
+        assert loaded.fitted
+        assert torch.allclose(loaded.temperature, calibrator.temperature)
+        assert torch.allclose(loaded(scores), calibrator(scores))
+
+    def test_save_load_isotonic(self, sample_data, tmp_path):
+        scores, labels = sample_data
+        calibrator = IsotonicCalibrator()
+        calibrator.fit(scores, labels)
+
+        path = tmp_path / "calibrator.pt"
+        calibrator.save(str(path))
+        loaded = IsotonicCalibrator.load(str(path))
+
+        assert loaded.fitted
+        assert torch.allclose(loaded(scores), calibrator(scores))
+
+    def test_save_load_piecewise_linear(self, sample_data, tmp_path):
+        scores, labels = sample_data
+        calibrator = PiecewiseLinearCalibrator()
+        calibrator.fit(scores, labels)
+
+        path = tmp_path / "calibrator.pt"
+        calibrator.save(str(path))
+        loaded = PiecewiseLinearCalibrator.load(str(path))
+
+        assert loaded.fitted
+        assert torch.allclose(loaded(scores), calibrator(scores))
+
+    def test_save_load_monotonic_nn(self, sample_data, tmp_path):
+        scores, labels = sample_data
+        calibrator = MonotonicNNCalibrator()
+        calibrator.fit(scores, labels)
+
+        path = tmp_path / "calibrator.pt"
+        calibrator.save(str(path))
+        loaded = MonotonicNNCalibrator.load(str(path))
+
+        assert loaded.fitted
+        assert torch.allclose(loaded(scores), calibrator(scores), atol=1e-5)
+
+    def test_save_unfitted_raises(self, tmp_path):
+        calibrator = TemperatureScaling()
+        path = tmp_path / "calibrator.pt"
+
+        with pytest.raises(RuntimeError, match="must be fitted"):
+            calibrator.save(str(path))
+
+    def test_load_wrong_class_raises(self, sample_data, tmp_path):
+        scores, labels = sample_data
+        calibrator = TemperatureScaling()
+        calibrator.fit(scores, labels)
+
+        path = tmp_path / "calibrator.pt"
+        calibrator.save(str(path))
+
+        with pytest.raises(ValueError, match="Saved calibrator is"):
+            IsotonicCalibrator.load(str(path))
+
+    def test_base_calibrator_load(self, sample_data, tmp_path):
+        """Test loading via BaseCalibrator.load() auto-detects class."""
+        scores, labels = sample_data
+        calibrator = TemperatureScaling()
+        calibrator.fit(scores, labels)
+
+        path = tmp_path / "calibrator.pt"
+        calibrator.save(str(path))
+
+        loaded = BaseCalibrator.load(str(path))
+        assert isinstance(loaded, TemperatureScaling)
+        assert torch.allclose(loaded(scores), calibrator(scores))
