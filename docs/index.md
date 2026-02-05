@@ -49,6 +49,20 @@ calibrated = calibrator(test_scores)
 - `ece_at_k(scores, labels, k)` - ECE computed only on top-k items
 - `reliability_diagram(scores, labels, k=None)` - Visualization of calibration
 
+## Citation
+
+If you use rankcal in academic work, please cite:
+
+```bibtex
+@software{hodge2025rankcal,
+  author = {Hodge, John},
+  title = {rankcal: Calibration for Ranking Systems},
+  year = {2025},
+  url = {https://github.com/jman4162/rankcal},
+  version = {0.2.0}
+}
+```
+
 ## License
 
 MIT
