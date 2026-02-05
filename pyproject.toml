@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rankcal"
-version = "0.1.1"
+version = "0.2.0"
 description = "Calibration and uncertainty quantification for ranking systems"
 readme = "README.md"
 license = {text = "MIT"}
@@ -49,8 +49,9 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/johnhodge/rankcal"
-Repository = "https://github.com/johnhodge/rankcal"
+Homepage = "https://github.com/jman4162/rankcal"
+Repository = "https://github.com/jman4162/rankcal"
+Documentation = "https://jman4162.github.io/rankcal/"
 
 [tool.setuptools.packages.find]
 where = ["src"]

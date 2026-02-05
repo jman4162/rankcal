@@ -1,5 +1,11 @@
 # rankcal
 
+[![PyPI version](https://badge.fury.io/py/rankcal.svg)](https://badge.fury.io/py/rankcal)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://jman4162.github.io/rankcal/)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jman4162/rankcal/blob/main/examples/tutorial.ipynb)
+
 Calibration and uncertainty quantification for ranking systems. PyTorch-first.
 
 ## Why rankcal?
